@@ -20,6 +20,22 @@ from mcp_email_server.emails.models import (
 mcp = FastMCP("email")
 
 
+def _resolve_mailbox(mailbox: str | None, account_name: str) -> str:
+    """Resolve mailbox parameter, using account's default if not specified.
+    
+    Args:
+        mailbox: Explicit mailbox parameter (may be None)
+        account_name: Account name to get default from
+        
+    Returns:
+        Resolved mailbox name
+    """
+    if mailbox is None:
+        handler = dispatch_handler(account_name)
+        return handler.default_mailbox
+    return mailbox
+
+
 @mcp.resource("email://{account_name}")
 async def get_account(account_name: str) -> EmailSettings | ProviderSettings | None:
     settings = get_settings()
@@ -72,9 +88,8 @@ async def list_emails_metadata(
 ) -> EmailMetadataPageResponse:
     handler = dispatch_handler(account_name)
     
-    # Use account's default mailbox if not specified
-    if mailbox is None:
-        mailbox = handler.default_mailbox
+    # Resolve mailbox parameter
+    resolved_mailbox = _resolve_mailbox(mailbox, account_name)
 
     return await handler.get_emails_metadata(
         page=page,
@@ -85,7 +100,7 @@ async def list_emails_metadata(
         from_address=from_address,
         to_address=to_address,
         order=order,
-        mailbox=mailbox,
+        mailbox=resolved_mailbox,
     )
 
 
@@ -104,11 +119,10 @@ async def get_emails_content(
 ) -> EmailContentBatchResponse:
     handler = dispatch_handler(account_name)
     
-    # Use account's default mailbox if not specified
-    if mailbox is None:
-        mailbox = handler.default_mailbox
+    # Resolve mailbox parameter
+    resolved_mailbox = _resolve_mailbox(mailbox, account_name)
     
-    return await handler.get_emails_content(email_ids, mailbox)
+    return await handler.get_emails_content(email_ids, resolved_mailbox)
 
 
 @mcp.tool(
@@ -183,11 +197,10 @@ async def delete_emails(
 ) -> str:
     handler = dispatch_handler(account_name)
     
-    # Use account's default mailbox if not specified
-    if mailbox is None:
-        mailbox = handler.default_mailbox
+    # Resolve mailbox parameter
+    resolved_mailbox = _resolve_mailbox(mailbox, account_name)
     
-    deleted_ids, failed_ids = await handler.delete_emails(email_ids, mailbox)
+    deleted_ids, failed_ids = await handler.delete_emails(email_ids, resolved_mailbox)
 
     result = f"Successfully deleted {len(deleted_ids)} email(s)"
     if failed_ids:
@@ -218,8 +231,7 @@ async def download_attachment(
 
     handler = dispatch_handler(account_name)
     
-    # Use account's default mailbox if not specified
-    if mailbox is None:
-        mailbox = handler.default_mailbox
+    # Resolve mailbox parameter
+    resolved_mailbox = _resolve_mailbox(mailbox, account_name)
     
-    return await handler.download_attachment(email_id, attachment_name, save_path, mailbox)
+    return await handler.download_attachment(email_id, attachment_name, save_path, resolved_mailbox)
