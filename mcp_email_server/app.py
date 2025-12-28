@@ -20,6 +20,19 @@ from mcp_email_server.emails.models import (
 mcp = FastMCP("email")
 
 
+def _get_mailbox_or_default(mailbox: str | None, default_mailbox: str) -> str:
+    """Resolve mailbox parameter, using default if not specified.
+    
+    Args:
+        mailbox: Explicit mailbox parameter (may be None)
+        default_mailbox: Default mailbox to use if mailbox is None
+        
+    Returns:
+        Resolved mailbox name
+    """
+    return mailbox if mailbox is not None else default_mailbox
+
+
 @mcp.resource("email://{account_name}")
 async def get_account(account_name: str) -> EmailSettings | ProviderSettings | None:
     settings = get_settings()
@@ -68,9 +81,12 @@ async def list_emails_metadata(
         Literal["asc", "desc"],
         Field(default=None, description="Order emails by field. `asc` or `desc`."),
     ] = "desc",
-    mailbox: Annotated[str, Field(default="INBOX", description="The mailbox to retrieve emails from.")] = "INBOX",
+    mailbox: Annotated[str | None, Field(default=None, description="The mailbox to retrieve emails from. If not specified, uses the account's configured default mailbox.")] = None,
 ) -> EmailMetadataPageResponse:
     handler = dispatch_handler(account_name)
+    
+    # Resolve mailbox parameter using handler's default
+    resolved_mailbox = _get_mailbox_or_default(mailbox, handler.default_mailbox)
 
     return await handler.get_emails_metadata(
         page=page,
@@ -81,7 +97,7 @@ async def list_emails_metadata(
         from_address=from_address,
         to_address=to_address,
         order=order,
-        mailbox=mailbox,
+        mailbox=resolved_mailbox,
     )
 
 
@@ -96,10 +112,14 @@ async def get_emails_content(
             description="List of email_id to retrieve (obtained from list_emails_metadata). Can be a single email_id or multiple email_ids."
         ),
     ],
-    mailbox: Annotated[str, Field(default="INBOX", description="The mailbox to retrieve emails from.")] = "INBOX",
+    mailbox: Annotated[str | None, Field(default=None, description="The mailbox to retrieve emails from. If not specified, uses the account's configured default mailbox.")] = None,
 ) -> EmailContentBatchResponse:
     handler = dispatch_handler(account_name)
-    return await handler.get_emails_content(email_ids, mailbox)
+    
+    # Resolve mailbox parameter using handler's default
+    resolved_mailbox = _get_mailbox_or_default(mailbox, handler.default_mailbox)
+    
+    return await handler.get_emails_content(email_ids, resolved_mailbox)
 
 
 @mcp.tool(
@@ -170,10 +190,14 @@ async def delete_emails(
         list[str],
         Field(description="List of email_id to delete (obtained from list_emails_metadata)."),
     ],
-    mailbox: Annotated[str, Field(default="INBOX", description="The mailbox to delete emails from.")] = "INBOX",
+    mailbox: Annotated[str | None, Field(default=None, description="The mailbox to delete emails from. If not specified, uses the account's configured default mailbox.")] = None,
 ) -> str:
     handler = dispatch_handler(account_name)
-    deleted_ids, failed_ids = await handler.delete_emails(email_ids, mailbox)
+    
+    # Resolve mailbox parameter using handler's default
+    resolved_mailbox = _get_mailbox_or_default(mailbox, handler.default_mailbox)
+    
+    deleted_ids, failed_ids = await handler.delete_emails(email_ids, resolved_mailbox)
 
     result = f"Successfully deleted {len(deleted_ids)} email(s)"
     if failed_ids:
@@ -193,6 +217,7 @@ async def download_attachment(
         str, Field(description="The name of the attachment to download (as shown in the attachments list).")
     ],
     save_path: Annotated[str, Field(description="The absolute path where the attachment should be saved.")],
+    mailbox: Annotated[str | None, Field(default=None, description="The mailbox containing the email. If not specified, uses the account's configured default mailbox.")] = None,
 ) -> AttachmentDownloadResponse:
     settings = get_settings()
     if not settings.enable_attachment_download:
@@ -202,4 +227,8 @@ async def download_attachment(
         raise PermissionError(msg)
 
     handler = dispatch_handler(account_name)
-    return await handler.download_attachment(email_id, attachment_name, save_path)
+    
+    # Resolve mailbox parameter using handler's default
+    resolved_mailbox = _get_mailbox_or_default(mailbox, handler.default_mailbox)
+    
+    return await handler.download_attachment(email_id, attachment_name, save_path, resolved_mailbox)
