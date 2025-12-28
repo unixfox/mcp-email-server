@@ -151,6 +151,37 @@ sent_folder_name = "INBOX.Sent"
 
 **To disable saving to Sent folder**, set `MCP_EMAIL_SERVER_SAVE_TO_SENT=false` or `save_to_sent = false` in your TOML config.
 
+### Configuring Default IMAP Folder
+
+By default, all email operations (listing, reading, deleting) use the `INBOX` folder. You can configure a different default folder for your account, which is useful when working with specific folders like `INBOX.Work`, `Archive`, or organization-specific folders.
+
+**Option 1: Environment Variable**
+
+```json
+{
+  "mcpServers": {
+    "zerolib-email": {
+      "command": "uvx",
+      "args": ["mcp-email-server@latest", "stdio"],
+      "env": {
+        "MCP_EMAIL_SERVER_DEFAULT_MAILBOX": "INBOX.Work"
+      }
+    }
+  }
+}
+```
+
+**Option 2: TOML Configuration**
+
+```toml
+[[emails]]
+account_name = "work"
+default_mailbox = "INBOX.Work"
+# ... rest of your email configuration
+```
+
+**Note:** The `mailbox` parameter in MCP tools (like `list_emails_metadata`, `get_emails_content`, `delete_emails`, `download_attachment`) will still override this default when explicitly provided. This configuration just sets the default when no mailbox is specified.
+
 For separate IMAP/SMTP credentials, you can also use:
 
 - `MCP_EMAIL_SERVER_IMAP_USER_NAME` / `MCP_EMAIL_SERVER_IMAP_PASSWORD`
