@@ -61,6 +61,7 @@ class EmailHandler(abc.ABC):
         email_id: str,
         attachment_name: str,
         save_path: str,
+        mailbox: str = "INBOX",
     ) -> "AttachmentDownloadResponse":
         """
         Download an email attachment and save it to the specified path

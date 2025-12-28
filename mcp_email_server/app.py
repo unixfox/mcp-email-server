@@ -68,9 +68,13 @@ async def list_emails_metadata(
         Literal["asc", "desc"],
         Field(default=None, description="Order emails by field. `asc` or `desc`."),
     ] = "desc",
-    mailbox: Annotated[str, Field(default="INBOX", description="The mailbox to retrieve emails from.")] = "INBOX",
+    mailbox: Annotated[str | None, Field(default=None, description="The mailbox to retrieve emails from. If not specified, uses the account's configured default mailbox.")] = None,
 ) -> EmailMetadataPageResponse:
     handler = dispatch_handler(account_name)
+    
+    # Use account's default mailbox if not specified
+    if mailbox is None:
+        mailbox = handler.default_mailbox
 
     return await handler.get_emails_metadata(
         page=page,
@@ -96,9 +100,14 @@ async def get_emails_content(
             description="List of email_id to retrieve (obtained from list_emails_metadata). Can be a single email_id or multiple email_ids."
         ),
     ],
-    mailbox: Annotated[str, Field(default="INBOX", description="The mailbox to retrieve emails from.")] = "INBOX",
+    mailbox: Annotated[str | None, Field(default=None, description="The mailbox to retrieve emails from. If not specified, uses the account's configured default mailbox.")] = None,
 ) -> EmailContentBatchResponse:
     handler = dispatch_handler(account_name)
+    
+    # Use account's default mailbox if not specified
+    if mailbox is None:
+        mailbox = handler.default_mailbox
+    
     return await handler.get_emails_content(email_ids, mailbox)
 
 
@@ -170,9 +179,14 @@ async def delete_emails(
         list[str],
         Field(description="List of email_id to delete (obtained from list_emails_metadata)."),
     ],
-    mailbox: Annotated[str, Field(default="INBOX", description="The mailbox to delete emails from.")] = "INBOX",
+    mailbox: Annotated[str | None, Field(default=None, description="The mailbox to delete emails from. If not specified, uses the account's configured default mailbox.")] = None,
 ) -> str:
     handler = dispatch_handler(account_name)
+    
+    # Use account's default mailbox if not specified
+    if mailbox is None:
+        mailbox = handler.default_mailbox
+    
     deleted_ids, failed_ids = await handler.delete_emails(email_ids, mailbox)
 
     result = f"Successfully deleted {len(deleted_ids)} email(s)"
@@ -193,6 +207,7 @@ async def download_attachment(
         str, Field(description="The name of the attachment to download (as shown in the attachments list).")
     ],
     save_path: Annotated[str, Field(description="The absolute path where the attachment should be saved.")],
+    mailbox: Annotated[str | None, Field(default=None, description="The mailbox containing the email. If not specified, uses the account's configured default mailbox.")] = None,
 ) -> AttachmentDownloadResponse:
     settings = get_settings()
     if not settings.enable_attachment_download:
@@ -202,4 +217,9 @@ async def download_attachment(
         raise PermissionError(msg)
 
     handler = dispatch_handler(account_name)
-    return await handler.download_attachment(email_id, attachment_name, save_path)
+    
+    # Use account's default mailbox if not specified
+    if mailbox is None:
+        mailbox = handler.default_mailbox
+    
+    return await handler.download_attachment(email_id, attachment_name, save_path, mailbox)

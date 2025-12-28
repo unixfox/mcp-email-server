@@ -403,6 +403,7 @@ class EmailClient:
         email_id: str,
         attachment_name: str,
         save_path: str,
+        mailbox: str = "INBOX",
     ) -> dict[str, Any]:
         """Download a specific attachment from an email and save it to disk."""
         imap = self.imap_class(self.email_server.host, self.email_server.port)
@@ -415,7 +416,7 @@ class EmailClient:
                 await imap.id(name="mcp-email-server", version="1.0.0")
             except Exception as e:
                 logger.warning(f"IMAP ID command failed: {e!s}")
-            await imap.select("INBOX")
+            await imap.select(mailbox)
 
             data = await self._fetch_email_with_formats(imap, email_id)
             if not data:
@@ -711,6 +712,7 @@ class ClassicEmailHandler(EmailHandler):
         )
         self.save_to_sent = email_settings.save_to_sent
         self.sent_folder_name = email_settings.sent_folder_name
+        self.default_mailbox = email_settings.default_mailbox
 
     async def get_emails_metadata(
         self,
@@ -809,9 +811,10 @@ class ClassicEmailHandler(EmailHandler):
         email_id: str,
         attachment_name: str,
         save_path: str,
+        mailbox: str = "INBOX",
     ) -> AttachmentDownloadResponse:
         """Download an email attachment and save it to the specified path."""
-        result = await self.incoming_client.download_attachment(email_id, attachment_name, save_path)
+        result = await self.incoming_client.download_attachment(email_id, attachment_name, save_path, mailbox)
         return AttachmentDownloadResponse(
             email_id=result["email_id"],
             attachment_name=result["attachment_name"],
